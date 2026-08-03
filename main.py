@@ -7,11 +7,12 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-# 從環境變數讀取密鑰
+# 從環境變數讀取密鑰與金鑰
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_CHANNEL_SECRET = os.environ.get('LINE_CHANNEL_SECRET')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 
+# 初始化 LINE API 與 OpenAI Client
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -30,31 +31,42 @@ def callback():
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
+    except Exception as e:
+        # 捕捉 LINE Verify 測試請求時發生的邊緣異常，強制回傳 200 OK
+        print(f"Callback processing note: {e}")
+        return 'OK', 200
 
-    return 'OK'
+    return 'OK', 200
 
-# 注意：這裡不要加 @app.route("/callback")
+# 處理文字訊息事件
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_msg = event.message.text
-    
+    user_message = event.message.text
+
     try:
-        # 呼叫 OpenAI API
+        # 呼叫 OpenAI API (GPT-4o-mini，反應快且費用低)
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "你是一個專業、有條理且說話簡潔明瞭的智慧助手，請用繁體中文回答。"},
-                {"role": "user", "content": user_msg}
+                {"role": "system", "content": "你是一個親切且專業的 AI 助理。"},
+                {"role": "user", "content": user_message}
             ]
         )
-        reply_msg = response.choices[0].message.content
+        reply_text = response.choices[0].message.content.strip()
+
     except Exception as e:
         print(f"OpenAI Error: {e}")
-        reply_msg = "抱歉，AI 處理訊息時發生錯誤，請確認 API Key 設定。"
+        reply_text = "抱歉，目前 AI 服務暫時無法回應，請稍後再試。"
 
+    # 回覆訊息給 LINE 使用者
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=reply_msg)
+        TextSendMessage(text=reply_text)
+    )
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
     )
 
 if __name__ == "__main__":
