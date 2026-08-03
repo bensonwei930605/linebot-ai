@@ -3,19 +3,22 @@ from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from openai import OpenAI
 
 app = Flask(__name__)
 
-# 從環境變數讀取 LINE 密鑰
+# 從環境變數讀取密鑰
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_CHANNEL_SECRET = os.environ.get('LINE_CHANNEL_SECRET')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route("/", methods=['GET'])
 def home():
-    return "LINE Bot is running!"
+    return "LINE Bot with GPT is running!"
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -30,15 +33,25 @@ def callback():
 
     return 'OK'
 
-# 處理文字訊息（Echo 機器人，你講什麼它回什麼）
-@app.route("/callback", methods=['POST'])
+# 注意：這裡不要加 @app.route("/callback")
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_msg = event.message.text
     
-    # 這裡可以接 AI 或其他邏輯，目前先預設重覆使用者的話
-    reply_msg = f"收到：{user_msg}"
-    
+    try:
+        # 呼叫 OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "你是一個專業、有條理且說話簡潔明瞭的智慧助手，請用繁體中文回答。"},
+                {"role": "user", "content": user_msg}
+            ]
+        )
+        reply_msg = response.choices[0].message.content
+    except Exception as e:
+        print(f"OpenAI Error: {e}")
+        reply_msg = "抱歉，AI 處理訊息時發生錯誤，請確認 API Key 設定。"
+
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_msg)
