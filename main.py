@@ -37,18 +37,18 @@ def generate_three_strategies(text):
         strategy_1 = "• 客戶想詢問買車推薦（如家人、長輩、小朋友或自己），但未明講車款類型。"
         strategy_2 = "• 漸進式引導方向：直接詢問對方是想找公路車、登山車還是兒童車等車款類別。"
         strategy_3 = "• 建議直接回覆：「那您是想要公路車、登山車還是兒童車呢？可以先跟我說一下大概的需求或身高，我幫你推薦最適合的！」"
-    elif any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約"]):
-        strategy_1 = "• 客戶有車輛專業調整、抓異音或賽事調校需求。"
-        strategy_2 = "• 車友對技術支援黏著度極高。"
-        strategy_3 = "• 建議直接回覆：「沒問題！我們店裡有專業校正器材，直接帶過來我們幫你處理！」"
+    elif any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約", "週末", "店"]):
+        strategy_1 = "• 客戶有具體預約、看車或技術調整需求，意圖明確。"
+        strategy_2 = "• 安排實體店面接待或技術支援。"
+        strategy_3 = "• 建議直接回覆：「沒問題！這週末直接把車帶過來或人過來，我們現場幫你處理！」"
     elif any(kw in text_lower for kw in ["10萬", "預算", "車款", "規格", "差別"]):
         strategy_1 = "• 客戶有明確預算或成車規格比較需求。"
         strategy_2 = "• 市面熱門推薦：碳纖車架搭配電變組合。"
         strategy_3 = "• 建議直接回覆：「這預算可以看性價比極高的碳纖車款，這週末有空直接來店裡看實車最快！」"
     else:
-        strategy_1 = "• 客戶進行一般性詢問，意圖不明確。"
-        strategy_2 = "• 以親切口語反問來破冰。"
-        strategy_3 = "• 建議直接回覆：「嗨囉！最近有想幫車子升級還是看新車嗎？隨時跟我說～」"
+        strategy_1 = "• 客戶進行一般性詢問或對話互動。"
+        strategy_2 = "• 保持親切口語互動。"
+        strategy_3 = "• 建議直接回覆：「了解！有任何問題隨時跟我說～」"
 
     return strategy_1, strategy_2, strategy_3
 
@@ -68,11 +68,11 @@ def handle_message(event):
     user_message = event.message.text
     text_lower = user_message.lower()
     
-    # 採用自然、實體店老闆口吻的漸進式反問
+    # 1. 統一先回覆 LINE 訊息（維持即時互動）
     if any(kw in text_lower for kw in ["爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", "小朋友", "小孩", "兒童", "推薦", "想買"]):
         reply_text = "那您是想要公路車、登山車還是兒童車呢？可以先跟我說一下對方的大約身高或需求，我來幫您推薦最適合的款式！"
-    elif any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約"]):
-        reply_text = "有的！我們店裡有專門的校正器材可以處理這塊，不管是異音還是賽事調校都可以搞定，直接把車帶過來我們幫你看看！"
+    elif any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約", "週末", "店"]):
+        reply_text = "有的！我們店裡有專門的校正器材可以處理這塊，或者是這週末有空直接把車帶過來店裡，我們幫你看看最快！"
     elif any(kw in text_lower for kw in ["10萬", "預算", "車款", "規格", "差別"]):
         reply_text = "10萬這個預算能選到配備很不錯的車款耶！店長晚點忙完會親自幫你挑幾台最划算的出來，或者你這週末有空直接來店裡看實車最快！"
     else:
@@ -83,21 +83,37 @@ def handle_message(event):
         TextSendMessage(text=reply_text)
     )
     
-    s1, s2, s3 = generate_three_strategies(user_message)
+    # 2. 【智慧判斷是否要推播 Telegram】
+    # 濾除太短、單純招呼語或無意義的對話（例如：「嗨」、「在嗎」、「好」、「嗯」等字數小於 3 且無關鍵字的訊息）
+    ignore_words = ["嗨", "哈囉", "安安", "在嗎", "好", "嗯", "喔", "謝謝", "ok", "了解"]
+    is_trivial = (len(user_message.strip()) <= 3 and user_message.strip() in ignore_words)
     
-    telegram_msg = (
-        f"🔴 *【高意願客戶詢問通知】*\n"
-        f"💬 *客戶原話*：「{user_message}」\n\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"📊 *【老闆專屬：漸進式應對策略】*\n\n"
-        f"1️⃣ *【需求解析】*\n{s1}\n\n"
-        f"2️⃣ *【引導方向】*\n{s2}\n\n"
-        f"3️⃣ *【建議回覆講法】*\n{s3}\n"
-        f"━━━━━━━━━━━━━━━\n\n"
-        f"👉 請前往 LINE 官方帳號查看詳情！"
-    )
+    # 定義哪些關鍵字才值得發送 Telegram 通知給老闆
+    valuable_keywords = [
+        "爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", 
+        "小朋友", "小孩", "兒童", "推薦", "想買", "調整", "調校", "器材", "異音", "維修", 
+        "預約", "10萬", "預算", "車款", "規格", "差別", "週末", "店", "多少錢"
+    ]
     
-    send_telegram_notification(telegram_msg)
+    has_valuable_intent = any(kw in text_lower for kw in valuable_keywords)
+    
+    # 只有當「不是無意義訊息」且「包含高價值意圖」時，才發送 Telegram 推播！
+    if not is_trivial and has_valuable_intent:
+        s1, s2, s3 = generate_three_strategies(user_message)
+        
+        telegram_msg = (
+            f"🔴 *【高意願客戶詢問通知】*\n"
+            f"💬 *客戶原話*：「{user_message}」\n\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📊 *【老闆專屬：漸進式應對策略】*\n\n"
+            f"1️⃣ *【需求解析】*\n{s1}\n\n"
+            f"2️⃣ *【引導方向】*\n{s2}\n\n"
+            f"3️⃣ *【建議回覆講法】*\n{s3}\n"
+            f"━━━━━━━━━━━━━━━\n\n"
+            f"👉 請前往 LINE 官方帳號查看詳情！"
+        )
+        
+        send_telegram_notification(telegram_msg)
 
 if __name__ == "__main__":
     app.run(port=5000)
