@@ -8,13 +8,14 @@ import requests
 app = Flask(__name__)
 
 # LINE 官方帳號設定
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_SECRET")
+# 建議正式上線時改用環境變數 os.getenv，或直接填入你的 Channel Access Token 與 Secret
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_CHANNEL_SECRET")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Telegram 機器人設定 (剛剛取得的新資料)
+# Telegram 機器人設定
 TELEGRAM_BOT_TOKEN = "8345028959:AAGp7LAqW4AEJUH1VHg8r7N0yWNjnDIMdTM"
 TELEGRAM_CHAT_ID = "7468110837"
 
@@ -36,9 +37,7 @@ def analyze_customer_intent(text):
     """
     text_lower = text.lower()
     
-    # 定義高意願紅燈關鍵字
     red_keywords = ["預算", "10萬", "車款", "現貨", "多少錢", "報價", "下單", "匯款", "急", "器材", "調整", "調校", "預約"]
-    # 定義中意願黃燈關鍵字
     yellow_keywords = ["怎麼用", "差別", "規格", "比較", "推薦", "功能"]
 
     if any(kw in text_lower for kw in red_keywords):
@@ -71,10 +70,17 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     
-    # 進行智慧燈號與需求分析
+    # 1. 在 LINE 官方帳號中回覆客人訊息
+    reply_text = "這部分需要由店長（老闆）親自幫您評估現貨與最適合的搭配，我已經通知老闆了，老闆稍後會親自回覆您！"
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=reply_text)
+    )
+    
+    # 2. 進行智慧燈號與需求分析
     light, intention, suggestion = analyze_customer_intent(user_message)
     
-    # 組合要發送到 Telegram 的專業幕僚摘要報告
+    # 3. 組合要發送到 Telegram 的專業幕僚摘要報告
     telegram_msg = (
         f"{light}\n\n"
         f"📝 *【AI 智能需求分析報告】*\n"
@@ -84,7 +90,7 @@ def handle_message(event):
         f"👉 請盡快前往 LINE 官方帳號查看並回覆客人！"
     )
     
-    # 發送通知到 Telegram
+    # 4. 發送通知到 Telegram
     send_telegram_notification(telegram_msg)
 
 if __name__ == "__main__":
