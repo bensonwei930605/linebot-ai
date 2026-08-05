@@ -8,7 +8,7 @@ import requests
 app = Flask(__name__)
 
 # LINE 官方帳號設定
-# 建議正式上線時改用環境變數 os.getenv，或直接填入你的 Channel Access Token 與 Secret
+# 請確保在 Render 的 Environment Variables 或下方填入正確的 Token 與 Secret
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_CHANNEL_SECRET")
 
@@ -69,9 +69,16 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
+    text_lower = user_message.lower()
     
-    # 1. 在 LINE 官方帳號中回覆客人訊息
-    reply_text = "這部分需要由店長（老闆）親自幫您評估現貨與最適合的搭配，我已經通知老闆了，老闆稍後會親自回覆您！"
+    # 1. 根據客人的不同問題內容，給予適當且具體的 LINE 自動回覆
+    if any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約"]):
+        reply_text = "是的，我們店內擁有專業的器材，可以協助您進行腳踏車上的各類調整，包括異音排除和賽事調校。若需要預約或有特定需求，請告訴我！"
+    elif any(kw in text_lower for kw in ["預算", "10萬", "車款", "規格", "差別", "推薦"]):
+        reply_text = "這款車在性價比與性能上非常出色！針對您的需求，店長可以幫您做更詳細的規格對比與搭配，我已經通知店長了，稍後會親自為您說明！"
+    else:
+        reply_text = "收到您的詢問！這部分我已經幫您通知店長（老闆）了，老闆稍後會親自回覆您！"
+
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
@@ -80,7 +87,7 @@ def handle_message(event):
     # 2. 進行智慧燈號與需求分析
     light, intention, suggestion = analyze_customer_intent(user_message)
     
-    # 3. 組合要發送到 Telegram 的專業幕僚摘要報告
+    # 3. 組合發送到 Telegram 的專業幕僚摘要報告
     telegram_msg = (
         f"{light}\n\n"
         f"📝 *【AI 智能需求分析報告】*\n"
