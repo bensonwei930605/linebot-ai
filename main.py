@@ -22,7 +22,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ==================== Telegram 推播設定 ====================
 # 請把雙引號裡面換成你在 BotFather 取得的 bensonweiAI_bot 正確 Token
-TELEGRAM_BOT_TOKEN = "8620675521:AAFexjM685bXjz302KgTZud2h3a-O0H-DXI"
+TELEGRAM_BOT_TOKEN = "8345028959:AAGp7LAqW4AEJUH1VHg8r7N0yWNjnDIMdTM"
 TELEGRAM_CHAT_ID = "7468110837"
 
 
