@@ -20,9 +20,9 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Telegram 推播設定（請將下方字串替換成你的 Bot Token 與 Chat ID）
-TELEGRAM_BOT_TOKEN = "你的_BotFather_Token"
-TELEGRAM_CHAT_ID = "你的_Telegram_ID"
+# Telegram 推播設定（已自動填入你的專屬 Token 與 Chat ID）
+TELEGRAM_BOT_TOKEN = "8620675521:AAFexjM685bXjz302KgTZud2h3a-O0H-DXI"
+TELEGRAM_CHAT_ID = "7468110837"
 
 
 def send_telegram_alert(message):
