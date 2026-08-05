@@ -33,9 +33,13 @@ def send_telegram_notification(message):
 def generate_three_strategies(text):
     text_lower = text.lower()
     
-    if any(kw in text_lower for kw in ["爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", "小朋友", "小孩", "兒童", "推薦", "想買"]):
+    if any(kw in text_lower for kw in ["價格", "多少錢", "大約價", "費用", "怎麼賣"]):
+        strategy_1 = "• 客戶詢問籠統價格，未指定具體車款或項目。"
+        strategy_2 = "• 漸進式引導方向：反問對方的預算範圍或想找哪種等級的車款。"
+        strategy_3 = "• 建議直接回覆：「這主要看您的預算大約抓多少喔！從幾千元的代步車到十幾萬的高階車我們都有，可以先跟我說您的預算範圍～」"
+    elif any(kw in text_lower for kw in ["爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", "小朋友", "小孩", "兒童", "推薦", "想買"]):
         strategy_1 = "• 客戶想詢問買車推薦（如家人、長輩、小朋友或自己），但未明講車款類型。"
-        strategy_2 = "• 漸進式引導方向：直接詢問對方是想找公路車、登山車還是兒童車等車款類別。"
+        strategy_2 = "• 漸進式引導方向：詢問是要公路車、登山車還是兒童車。"
         strategy_3 = "• 建議直接回覆：「那您是想要公路車、登山車還是兒童車呢？可以先跟我說一下大概的需求或身高，我幫你推薦最適合的！」"
     elif any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約", "週末", "店"]):
         strategy_1 = "• 客戶有具體預約、看車或技術調整需求，意圖明確。"
@@ -68,8 +72,10 @@ def handle_message(event):
     user_message = event.message.text
     text_lower = user_message.lower()
     
-    # 1. 統一先回覆 LINE 訊息（維持即時互動）
-    if any(kw in text_lower for kw in ["爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", "小朋友", "小孩", "兒童", "推薦", "想買"]):
+    # 1. 根據不同情境給出精準的漸進式反問
+    if any(kw in text_lower for kw in ["價格", "多少錢", "大約價", "費用", "怎麼賣"]):
+        reply_text = "這主要看您的預算大約抓多少喔！從幾千元的入門休閒車到十幾萬的高階車款我們都有，可以先跟透露一下您的預算範圍嗎？"
+    elif any(kw in text_lower for kw in ["爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", "小朋友", "小孩", "兒童", "推薦", "想買"]):
         reply_text = "那您是想要公路車、登山車還是兒童車呢？可以先跟我說一下對方的大約身高或需求，我來幫您推薦最適合的款式！"
     elif any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約", "週末", "店"]):
         reply_text = "有的！我們店裡有專門的校正器材可以處理這塊，或者是這週末有空直接把車帶過來店裡，我們幫你看看最快！"
@@ -83,21 +89,19 @@ def handle_message(event):
         TextSendMessage(text=reply_text)
     )
     
-    # 2. 【智慧判斷是否要推播 Telegram】
-    # 濾除太短、單純招呼語或無意義的對話（例如：「嗨」、「在嗎」、「好」、「嗯」等字數小於 3 且無關鍵字的訊息）
+    # 2. 智慧過濾洗版訊息，僅針對高價值意圖推播 Telegram
     ignore_words = ["嗨", "哈囉", "安安", "在嗎", "好", "嗯", "喔", "謝謝", "ok", "了解"]
     is_trivial = (len(user_message.strip()) <= 3 and user_message.strip() in ignore_words)
     
-    # 定義哪些關鍵字才值得發送 Telegram 通知給老闆
     valuable_keywords = [
+        "價格", "多少錢", "大約價", "費用", "怎麼賣",
         "爸", "長輩", "老人家", "父親", "公公", "媽", "老婆", "女友", "弟", "哥", "妹", "姊", 
         "小朋友", "小孩", "兒童", "推薦", "想買", "調整", "調校", "器材", "異音", "維修", 
-        "預約", "10萬", "預算", "車款", "規格", "差別", "週末", "店", "多少錢"
+        "預約", "10萬", "預算", "車款", "規格", "差別", "週末", "店"
     ]
     
     has_valuable_intent = any(kw in text_lower for kw in valuable_keywords)
     
-    # 只有當「不是無意義訊息」且「包含高價值意圖」時，才發送 Telegram 推播！
     if not is_trivial and has_valuable_intent:
         s1, s2, s3 = generate_three_strategies(user_message)
         
