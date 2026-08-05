@@ -8,7 +8,6 @@ import requests
 app = Flask(__name__)
 
 # LINE 官方帳號設定
-# 請確保在 Render 的 Environment Variables 或下方填入正確的 Token 與 Secret
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_CHANNEL_SECRET")
 
@@ -31,29 +30,26 @@ def send_telegram_notification(message):
     except Exception as e:
         print(f"Telegram 推播失敗: {e}")
 
-def analyze_customer_intent(text):
+def generate_three_strategies(text):
     """
-    智慧分析客戶需求、評估意願並給出燈號與建議
+    針對客戶訊息，自動生成 3 種真人化應對策略報告
     """
     text_lower = text.lower()
     
-    red_keywords = ["預算", "10萬", "車款", "現貨", "多少錢", "報價", "下單", "匯款", "急", "器材", "調整", "調校", "預約"]
-    yellow_keywords = ["怎麼用", "差別", "規格", "比較", "推薦", "功能"]
-
-    if any(kw in text_lower for kw in red_keywords):
-        light = "🔴 *【紅燈 - 高購買意願 / 專業需求】*"
-        intention = "高（有明確預算、高單價車款詢問或專業技術調校需求）"
-        suggestion = "建議優先回覆，可直接切入規格、車款推薦或詢問預約調整時間。"
-    elif any(kw in text_lower for kw in yellow_keywords):
-        light = "🟡 *【黃燈 - 評估中 / 規格詢問】*"
-        intention = "中（正在做功課、比較功能與價格）"
-        suggestion = "可提供專業解答與比較優勢，建立信任感。"
+    if "10" in text or "預算" in text or "車款" in text or "推薦" in text:
+        strategy_1 = "• 客戶手握 10 萬左右預算，想找高階或進階車款，目標明確且購買意願很高。"
+        strategy_2 = "• 市面上這個價位帶最熱門的是碳纖車架搭配 105 電變（像是 TCR 或同級車款），車友接受度極高。"
+        strategy_3 = "• 建議直接回覆：「10萬預算選擇其實非常多！店裡剛好有幾台熱門現車可以看，這週末有空直接過來店裡，順便幫你抓一下騎乘姿勢跟尺寸最準！」"
+    elif "調整" in text or "調校" in text or "器材" in text or "異音" in text:
+        strategy_1 = "• 客戶有實際的車輛調整、抓異音或賽事調校需求，痛點明確。"
+        strategy_2 = "• 車友對 Fitting 跟異音處理通常很急，只要技術到位很容易直接黏著度拉滿。"
+        strategy_3 = "• 建議直接回覆：「沒問題！我們店裡有專業的校正器材可以幫忙處理。看你平日還是週末方便，直接把車帶過來我們現場幫你檢查！」"
     else:
-        light = "🟢 *【綠燈 - 一般對話 / 諮詢】*"
-        intention = "低或初步接觸"
-        suggestion = "制式回覆或引導說出實際需求。"
+        strategy_1 = "• 客戶初步打招呼或隨性詢問，意圖還在摸索中。"
+        strategy_2 = "• 保持輕鬆、像朋友聊天的語氣破冰，不要給人壓力。"
+        strategy_3 = "• 建議直接回覆：「嗨囉！最近有打算騎車去哪裡晃晃嗎？還是有想看哪種類型的車，隨時跟我說～」"
 
-    return light, intention, suggestion
+    return strategy_1, strategy_2, strategy_3
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -71,33 +67,35 @@ def handle_message(event):
     user_message = event.message.text
     text_lower = user_message.lower()
     
-    # 1. 根據客人的不同問題內容，給予適當且具體的 LINE 自動回覆
+    # 1. 模仿真人對話的 LINE 自動回覆（完全捨棄死板罐頭訊息）
     if any(kw in text_lower for kw in ["調整", "調校", "器材", "異音", "維修", "預約"]):
-        reply_text = "是的，我們店內擁有專業的器材，可以協助您進行腳踏車上的各類調整，包括異音排除和賽事調校。若需要預約或有特定需求，請告訴我！"
+        reply_text = "有的！我們店裡有專門的校正器材可以處理這塊，不管是異音還是賽事調校都可以搞定。看你平日還是這週末方便，直接把車帶過來我們幫你看看！"
     elif any(kw in text_lower for kw in ["預算", "10萬", "車款", "規格", "差別", "推薦"]):
-        reply_text = "這款車在性價比與性能上非常出色！針對您的需求，店長可以幫您做更詳細的規格對比與搭配，我已經通知店長了，稍後會親自為您說明！"
+        reply_text = "10萬這個預算能選到配備很不錯的車款耶！店長晚點忙完會親自幫你挑幾台最划算的出來，或者你這週末有空直接來店裡看實車最快！"
     else:
-        reply_text = "收到您的詢問！這部分我已經幫您通知店長（老闆）了，老闆稍後會親自回覆您！"
+        reply_text = "嗨囉！訊息都有收到囉～ 我先跟店長說一聲，他忙完就會馬上回覆你！"
 
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
     
-    # 2. 進行智慧燈號與需求分析
-    light, intention, suggestion = analyze_customer_intent(user_message)
+    # 2. 生成 3 種應對策略
+    s1, s2, s3 = generate_three_strategies(user_message)
     
-    # 3. 組合發送到 Telegram 的專業幕僚摘要報告
+    # 3. 推送到 Telegram 的老闆專屬報告
     telegram_msg = (
-        f"{light}\n\n"
-        f"📝 *【AI 智能需求分析報告】*\n"
-        f"• *客戶意願*：{intention}\n"
-        f"• *建議對策*：{suggestion}\n\n"
-        f"💬 *最新對話*：「{user_message}」\n\n"
-        f"👉 請盡快前往 LINE 官方帳號查看並回覆客人！"
+        f"🔴 *【高意願客戶詢問通知】*\n"
+        f"💬 *客戶原話*：「{user_message}」\n\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"📊 *【老闆專屬：3種真人化應對策略】*\n\n"
+        f"1️⃣ *【客戶需求解析】*\n{s1}\n\n"
+        f"2️⃣ *【市面熱門方向】*\n{s2}\n\n"
+        f"3️⃣ *【建議直接切入的講法】*\n{s3}\n"
+        f"━━━━━━━━━━━━━━━\n\n"
+        f"👉 請前往 LINE 官方帳號查看詳情！"
     )
     
-    # 4. 發送通知到 Telegram
     send_telegram_notification(telegram_msg)
 
 if __name__ == "__main__":
