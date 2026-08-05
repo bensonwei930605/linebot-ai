@@ -1,5 +1,6 @@
 import os
 import sys
+import requests
 from datetime import datetime, timezone, timedelta
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
@@ -11,21 +12,42 @@ from apscheduler.schedulers.background import BackgroundScheduler
 app = Flask(__name__)
 sys.stdout.reconfigure(line_buffering=True)
 
-LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
-LINE_CHANNEL_SECRET = os.environ.get('LINE_CHANNEL_SECRET')
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN', '')
+LINE_CHANNEL_SECRET = os.environ.get('LINE_CHANNEL_SECRET', '')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# 從 Render 環境變數讀取老闆的 LINE User ID
-BOSS_LINE_USER_ID = os.environ.get('BOSS_LINE_USER_ID', '')
+# Telegram 推播設定（請將下方字串替換成你的 Bot Token 與 Chat ID）
+TELEGRAM_BOT_TOKEN = "你的_BotFather_Token"
+TELEGRAM_CHAT_ID = "你的_Telegram_ID"
+
+
+def send_telegram_alert(message):
+    """發送即時通知到老闆的 Telegram 手機 App"""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("[Telegram 推播略過] 尚未設定 Token 或 Chat ID")
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message
+    }
+    try:
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            print("[Telegram 推播] 成功發送通知給老闆！")
+        else:
+            print(f"[Telegram 推播失敗]: {response.text}")
+    except Exception as e:
+        print(f"[Telegram 異常]: {e}")
 
 
 @app.route("/", methods=['GET'])
 def home():
-    return "Wei IT & Bike Assistant Server is Running with Instant Notification!", 200
+    return "Wei IT & Bike Assistant with Telegram Alert is Running!", 200
 
 
 @app.route("/callback", methods=['POST'])
@@ -44,16 +66,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_text = event.message.text
-    sender_id = event.source.user_id
     
-    # 輸入「我的ID」可隨時查詢老闆自己的 ID
-    if user_text.strip() == "我的ID":
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=f"老闆，您的 LINE User ID 是：\n{sender_id}")
-        )
-        return
-
     tz = timezone(timedelta(hours=8))
     current_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %A")
 
@@ -69,7 +82,6 @@ def handle_message(event):
     2. 【維修與保養諮詢】：針對異音排除、226 賽前大保養等技術問題，給予簡短初步解答。
     3. 【行程與預約管理】：當客戶有明確預約維修時間時，請幫忙整理資訊，並在回覆結尾附上 Google 日曆加入連結：
        https://calendar.google.com/calendar/render?action=TEMPLATE&text=[行程標題]&dates=[開始UTC]/[結束UTC]&details=[行程說明]&location=[地點]
-       * 時間格式必須使用 UTC (台灣時間減 8 小時)，格式如：20260810T060000Z/20260810T070000Z
     """
 
     try:
@@ -85,7 +97,7 @@ def handle_message(event):
         print(f"[OpenAI 錯誤]: {e}")
         ai_reply = "抱歉老闆，系統暫時連線異常。"
 
-    # 1. 回覆訊息給客人
+    # 1. 回覆訊息給 LINE 上的客人
     try:
         line_bot_api.reply_message(
             event.reply_token,
@@ -94,48 +106,28 @@ def handle_message(event):
     except Exception as e:
         print(f"[LINE 回覆錯誤]: {e}")
 
-    # 2. 強制推播：只要 AI 回覆了需要老闆處理的話術，立刻發送通知！
-    if BOSS_LINE_USER_ID and "老闆" in ai_reply:
-        boss_notification = f"""🚨 【顧客諮詢通知】
-有客人傳送了需要您親自出馬的訊息：
-「{user_text}」
-
-請盡快前往官方帳號聊天室查看並回覆客人！"""
-        try:
-            line_bot_api.push_message(
-                BOSS_LINE_USER_ID,
-                TextSendMessage(text=boss_notification)
-            )
-            print("[主動推播] 已成功強制發送推播給老闆！")
-        except Exception as e:
-            print(f"[老闆推播失敗]: {e}")
+    # 2. Telegram 強制推播：只要 AI 回覆了需要老闆處理的話術，立刻發送手機通知！
+    if "老闆" in ai_reply:
+        boss_notification = (
+            "🚨 【顧客諮詢通知】\n"
+            f"有客人傳送了需要您親自出馬的訊息：\n"
+            f"「{user_text}」\n\n"
+            "請盡快前往 LINE 官方帳號聊天室查看並回覆客人！"
+        )
+        send_telegram_alert(boss_notification)
 
 
 # ==================== ⏰ 每日開店主動推播任務 ====================
 def daily_morning_briefing():
-    """每天早上開店前主動推播給老闆的晨間提醒"""
-    if not BOSS_LINE_USER_ID:
-        print("[推播略過] 尚未設定 BOSS_LINE_USER_ID")
-        return
-
     tz = timezone(timedelta(hours=8))
     today_str = datetime.now(tz).strftime("%Y年%m月%d日 (%A)")
-
     push_message = f"""早安，老闆！ 🚴‍♂️
 今天是 {today_str}。
 
 【今日開店提醒】：
 • 記得檢查店內高壓打氣機與工作台工具。
 • 今日目前暫無預約客，祝營業順利，業績長紅！"""
-
-    try:
-        line_bot_api.push_message(
-            BOSS_LINE_USER_ID,
-            TextSendMessage(text=push_message)
-        )
-        print("[主動推播] 成功發送早安晨報給老闆！")
-    except Exception as e:
-        print(f"[推播失敗]: {e}")
+    send_telegram_alert(push_message)
 
 
 # 設定背景排程器：每天早上 08:30 自動執行一次
