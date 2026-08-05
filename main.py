@@ -94,8 +94,8 @@ def handle_message(event):
     except Exception as e:
         print(f"[LINE 回覆錯誤]: {e}")
 
-    # 2. 智慧推播：如果客人問了推薦、預算、車款或預約，立刻發送通知給老闆本人！
-    if BOSS_LINE_USER_ID and any(keyword in user_text for keyword in ["推薦", "預算", "預約", "車款", "買"]):
+    # 2. 強制推播：只要 AI 回覆了需要老闆處理的話術，立刻發送通知！
+    if BOSS_LINE_USER_ID and "老闆" in ai_reply:
         boss_notification = f"""🚨 【顧客諮詢通知】
 有客人傳送了需要您親自出馬的訊息：
 「{user_text}」
@@ -106,7 +106,7 @@ def handle_message(event):
                 BOSS_LINE_USER_ID,
                 TextSendMessage(text=boss_notification)
             )
-            print("[主動推播] 已成功發送顧客諮詢通知給老闆！")
+            print("[主動推播] 已成功強制發送推播給老闆！")
         except Exception as e:
             print(f"[老闆推播失敗]: {e}")
 
