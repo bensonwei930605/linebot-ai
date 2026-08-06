@@ -23,7 +23,7 @@ TELEGRAM_CHAT_ID = "7468110837"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "你的GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# 用來記錄每個 LINE 使用者的對話紀錄（簡單記憶最近幾輪）
+# 記錄每個 LINE 使用者對話紀錄
 user_sessions = {}
 
 def send_telegram_notification(message):
@@ -39,13 +39,10 @@ def send_telegram_notification(message):
         print(f"Telegram 推播失敗: {e}")
 
 def generate_ai_reply_and_strategy(user_id, user_message):
-    # 初始化使用者的對話紀錄
     if user_id not in user_sessions:
         user_sessions[user_id] = []
     
-    # 記錄這則訊息
     user_sessions[user_id].append(f"客戶: {user_message}")
-    # 保持最近 6 輪對話即可，避免過長
     if len(user_sessions[user_id]) > 6:
         user_sessions[user_id] = user_sessions[user_id][-6:]
         
@@ -56,10 +53,10 @@ def generate_ai_reply_and_strategy(user_id, user_message):
     {chat_history_str}
     
     【核心原則】
-    1. 絕對禁止在客戶「沒有主動提到預算」時，自己瞎掰或提到預算。
-    2. 如果客戶前面已經提過預算（例如 10 萬），現在又回答了車款（例如「公路車」），你要順著這個脈絡回應，展現專業（例如：「10萬預算看公路車選擇很多耶！鋁合金辦到好或是碳纖維入門都可以看，請問身高大約多少呢？」）。
-    3. 語氣必須親切、口語、像真實台灣在地車店老闆，絕不可用機器人罐頭語氣。
-    4. 懂得用漸進式反問來推進對話（如詢問身高、騎乘習慣或方便看車的時間）。
+    1. **如果客戶已經在訊息中明確提到車種（例如公路車）與預算（例如 9萬），絕對不要再問「是要公路車還是登山車」這種白癡問題！**
+    2. 要針對客戶當下提供的預算與車種給予熱情、專業的對應（例如：「9萬預算來看公路車選擇很豐富耶！鋁合金高階或碳纖維入門都有，請問身高大約是多少呢？這樣比較好幫你抓車架尺寸！」）。
+    3. 語氣必須親切、口語、像真實台灣在地車店老闆。
+    4. 懂得用漸進式反問來推進對話（如詢問身高、騎乘習慣或方便看車的時間），但千萬不要重複詢問客戶已經給過的答案。
     
     請嚴格依照以下格式回傳，不要有多餘的解釋或 Markdown 程式碼外框：
     REPLY: [你要回覆給客戶的口語對話內容]
@@ -95,7 +92,6 @@ def generate_ai_reply_and_strategy(user_id, user_message):
             if not reply:
                 reply = "有的！這就幫您確認，看這週末或平日哪時候比較方便過來呢？"
                 
-        # 記錄機器人的回覆到歷史中
         user_sessions[user_id].append(f"小幫手: {reply}")
                 
         return reply, s1, s2, s3
@@ -117,7 +113,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
-    user_id = event.source.user_id  # 取得 LINE 者的 ID 用來追蹤對話上下文
+    user_id = event.source.user_id
     
     reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_id, user_message)
 
