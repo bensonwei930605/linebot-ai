@@ -113,23 +113,21 @@ def handle_message(event):
     user_id = event.source.user_id
     text_lower = user_message.lower()
     
-    # 🛑 【強制條件式】當同時偵測到「數字/預算」以及「車款關鍵字」時，直接強制回覆指定話術！
-    has_budget_word = any(kw in text_lower for kw in ["預算", "萬", "元", "元預算", "元"]) or any(char.isdigit() for char in user_message)
+    # 🛑 【強制條件式】同時偵測預算與車款
+    has_budget_word = any(kw in text_lower for kw in ["預算", "萬", "元"]) or any(char.isdigit() for char in user_message)
     has_car_type = any(kw in text_lower for kw in ["公路車", "登山車", "車款", "小折", "單車", "自行車", "電輔車"])
     
     if has_budget_word and has_car_type:
         reply_text = "可以先跟我說一下對方的大約身高或需求，我來幫您推薦最適合的款式！"
-        s1 = "• 客戶同時提供了預算與具體車款需求。"
-        s2 = "• 依照指示進行身高與需求的反問引導。"
-        s3 = f"• 當前回覆：「{reply_text}」"
+        s1 = "• 客戶同時指定了預算與車款，直接進行精準引導。"
+        s2 = "• 詢問對方身高與實際騎乘需求，以便抓尺寸與車款。"
+        s3 = f"• 建議回覆：「{reply_text}」"
         
-        # 記錄到對話紀錄中保持上下文同步
         if user_id not in user_sessions:
             user_sessions[user_id] = []
         user_sessions[user_id].append(f"客戶: {user_message}")
         user_sessions[user_id].append(f"小幫手: {reply_text}")
     else:
-        # 正常走 Gemini 動態生成
         reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_id, user_message)
 
     line_bot_api.reply_message(
@@ -145,7 +143,7 @@ def handle_message(event):
             f"🔴 *【客戶對話動態通知】*\n"
             f"💬 *客戶原話*：「{user_message}」\n\n"
             f"━━━━━━━━━━━━━━━\n"
-            f"📊 *【老闆專屬：Gemini 智慧應對策略】*\n\n"
+            f"📊 *【老闆專屬：應對策略】*\n\n"
             f"1️⃣ *【需求解析】*\n{s1}\n\n"
             f"2️⃣ *【引導方向】*\n{s2}\n\n"
             f"3️⃣ *【建議回覆講法】*\n{s3}\n"
