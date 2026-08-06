@@ -23,6 +23,9 @@ TELEGRAM_CHAT_ID = "7468110837"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "你的GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
+# 用來記錄每個 LINE 使用者的對話紀錄（簡單記憶最近幾輪）
+user_sessions = {}
+
 def send_telegram_notification(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -35,14 +38,28 @@ def send_telegram_notification(message):
     except Exception as e:
         print(f"Telegram 推播失敗: {e}")
 
-def generate_ai_reply_and_strategy(user_message):
+def generate_ai_reply_and_strategy(user_id, user_message):
+    # 初始化使用者的對話紀錄
+    if user_id not in user_sessions:
+        user_sessions[user_id] = []
+    
+    # 記錄這則訊息
+    user_sessions[user_id].append(f"客戶: {user_message}")
+    # 保持最近 6 輪對話即可，避免過長
+    if len(user_sessions[user_id]) > 6:
+        user_sessions[user_id] = user_sessions[user_id][-6:]
+        
+    chat_history_str = "\n".join(user_sessions[user_id])
+
     prompt = f"""
-    你是一家專業自行車店的老闆兼小幫手。現在有一位客戶在 LINE 傳送了以下訊息：「{user_message}」
+    你是一家專業自行車店的老闆兼小幫手。以下是與這名客戶最近的對話紀錄：
+    {chat_history_str}
     
     【核心原則】
-    1. 絕對禁止在客戶「沒有主動提到預算」時，自己瞎掰或提到「這個預算能選到...」之類的話。
-    2. 要針對客戶當下的真實提問（例如詢問長輩/老人車款、預約時間、身高、車種等）來做最自然、口語、像真實台灣在地車店老闆的應答。
-    3. 懂得用漸進式反問來引導對話（例如詢問長輩騎車習慣、身高、或是方便的時間）。
+    1. 絕對禁止在客戶「沒有主動提到預算」時，自己瞎掰或提到預算。
+    2. 如果客戶前面已經提過預算（例如 10 萬），現在又回答了車款（例如「公路車」），你要順著這個脈絡回應，展現專業（例如：「10萬預算看公路車選擇很多耶！鋁合金辦到好或是碳纖維入門都可以看，請問身高大約多少呢？」）。
+    3. 語氣必須親切、口語、像真實台灣在地車店老闆，絕不可用機器人罐頭語氣。
+    4. 懂得用漸進式反問來推進對話（如詢問身高、騎乘習慣或方便看車的時間）。
     
     請嚴格依照以下格式回傳，不要有多餘的解釋或 Markdown 程式碼外框：
     REPLY: [你要回覆給客戶的口語對話內容]
@@ -78,6 +95,9 @@ def generate_ai_reply_and_strategy(user_message):
             if not reply:
                 reply = "有的！這就幫您確認，看這週末或平日哪時候比較方便過來呢？"
                 
+        # 記錄機器人的回覆到歷史中
+        user_sessions[user_id].append(f"小幫手: {reply}")
+                
         return reply, s1, s2, s3
     except Exception as e:
         print(f"Gemini 生成失敗: {e}")
@@ -97,8 +117,9 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
+    user_id = event.source.user_id  # 取得 LINE 者的 ID 用來追蹤對話上下文
     
-    reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_message)
+    reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_id, user_message)
 
     line_bot_api.reply_message(
         event.reply_token,
