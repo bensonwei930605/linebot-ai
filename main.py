@@ -23,7 +23,6 @@ TELEGRAM_CHAT_ID = "7468110837"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "你的GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# 記錄每個 LINE 使用者對話紀錄
 user_sessions = {}
 
 def send_telegram_notification(message):
@@ -53,10 +52,8 @@ def generate_ai_reply_and_strategy(user_id, user_message):
     {chat_history_str}
     
     【核心原則】
-    1. **如果客戶已經在訊息中明確提到車種（例如公路車）與預算（例如 9萬），絕對不要再問「是要公路車還是登山車」這種白癡問題！**
-    2. 要針對客戶當下提供的預算與車種給予熱情、專業的對應（例如：「9萬預算來看公路車選擇很豐富耶！鋁合金高階或碳纖維入門都有，請問身高大約是多少呢？這樣比較好幫你抓車架尺寸！」）。
-    3. 語氣必須親切、口語、像真實台灣在地車店老闆。
-    4. 懂得用漸進式反問來推進對話（如詢問身高、騎乘習慣或方便看車的時間），但千萬不要重複詢問客戶已經給過的答案。
+    1. 語氣必須親切、口語、像真實台灣在地車店老闆。
+    2. 配合客戶當下的提問給予自然的對應與漸進式反問。
     
     請嚴格依照以下格式回傳，不要有多餘的解釋或 Markdown 程式碼外框：
     REPLY: [你要回覆給客戶的口語對話內容]
@@ -114,8 +111,26 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     user_id = event.source.user_id
+    text_lower = user_message.lower()
     
-    reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_id, user_message)
+    # 🛑 【強制條件式】當同時偵測到「數字/預算」以及「車款關鍵字」時，直接強制回覆指定話術！
+    has_budget_word = any(kw in text_lower for kw in ["預算", "萬", "元", "元預算", "元"]) or any(char.isdigit() for char in user_message)
+    has_car_type = any(kw in text_lower for kw in ["公路車", "登山車", "車款", "小折", "單車", "自行車", "電輔車"])
+    
+    if has_budget_word and has_car_type:
+        reply_text = "可以先跟我說一下對方的大約身高或需求，我來幫您推薦最適合的款式！"
+        s1 = "• 客戶同時提供了預算與具體車款需求。"
+        s2 = "• 依照指示進行身高與需求的反問引導。"
+        s3 = f"• 當前回覆：「{reply_text}」"
+        
+        # 記錄到對話紀錄中保持上下文同步
+        if user_id not in user_sessions:
+            user_sessions[user_id] = []
+        user_sessions[user_id].append(f"客戶: {user_message}")
+        user_sessions[user_id].append(f"小幫手: {reply_text}")
+    else:
+        # 正常走 Gemini 動態生成
+        reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_id, user_message)
 
     line_bot_api.reply_message(
         event.reply_token,
