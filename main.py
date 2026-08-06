@@ -53,7 +53,7 @@ def generate_ai_reply_and_strategy(user_id, user_message):
     
     【核心原則】
     1. 語氣必須親切、口語、像真實台灣在地車店老闆。
-    2. 配合客戶當下的提問給予自然的對應與漸進式反問。
+    2. 配合客戶當下的提問給予自然的對應。
     
     請嚴格依照以下格式回傳，不要有多餘的解釋或 Markdown 程式碼外框：
     REPLY: [你要回覆給客戶的口語對話內容]
@@ -113,15 +113,15 @@ def handle_message(event):
     user_id = event.source.user_id
     text_lower = user_message.lower()
     
-    # 🛑 【強制條件式】同時偵測預算與車款
+    # 🛑 【強制條件式】碰到預算跟車款時，直接由老闆統一回覆
     has_budget_word = any(kw in text_lower for kw in ["預算", "萬", "元"]) or any(char.isdigit() for char in user_message)
     has_car_type = any(kw in text_lower for kw in ["公路車", "登山車", "車款", "小折", "單車", "自行車", "電輔車"])
     
     if has_budget_word and has_car_type:
-        reply_text = "可以先跟我說一下對方的大約身高或需求，我來幫您推薦最適合的款式！"
-        s1 = "• 客戶同時指定了預算與車款，直接進行精準引導。"
-        s2 = "• 詢問對方身高與實際騎乘需求，以便抓尺寸與車款。"
-        s3 = f"• 建議回覆：「{reply_text}」"
+        reply_text = "我們這裡由老闆統一回覆，請您稍等一下！"
+        s1 = "• 客戶詢問具體預算與車款推薦，屬於高意願深度諮詢。"
+        s2 = "• 轉交老闆親自評估庫存與規格並進行回覆。"
+        s3 = f"• 當前回覆：「{reply_text}」"
         
         if user_id not in user_sessions:
             user_sessions[user_id] = []
