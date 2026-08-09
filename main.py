@@ -38,46 +38,42 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     
-    # 1. 擴充業務/商品/零組件關鍵字（含車款、配件、專業零組件及常見注音）
-    buy_keywords = [
-        # 整車與預算
-        "公路車", "登山車", "預算", "萬", "元", "車款", "買車", "價格", "多少錢",
-        # 配件
-        "車衣", "安全帽", "水壺", "眼鏡", "車用眼鏡", "卡鞋", "配件", "裝備",
-        # 專業零組件與升級改裝
-        "車架", "變速器", "變數器", "大盤", "功率大盤", "功率計", "碟盤", "輪框", "輪組", "零件", "改裝",
-        # 注音文防護
-        "ㄍㄨㄥ", "ㄌㄨˋ", "ㄔㄜ", "ㄉㄥˊ", "ㄕㄢ", "登山", "公路"
+    # 1. 【改裝/升級/零組件專區】（需要老闆親自處理的專業問題）
+    upgrade_keywords = [
+        "車架", "變速器", "變數器", "大盤", "功率大盤", "功率計", "碟盤", "輪框", "輪組", 
+        "改裝", "升級", "維修", "保養", "檢修", "組車"
     ]
-    is_buy_query = any(kw in user_message for kw in buy_keywords)
+    is_upgrade_query = any(kw in user_message for kw in upgrade_keywords)
     
-    # 2. 時間判斷
-    is_time_query = any(kw in user_message for kw in ["點", "明天", "今天", "週末", "平日", "上午", "下午", "晚上"]) or user_message.isdigit()
+    # 2. 【一般買東西/配件/預約詢問】（AI 可以直接在 LINE 回覆的常規問題）
+    shop_keywords = [
+        "公路車", "登山車", "預算", "萬", "元", "車款", "買車", "價格", "多少錢",
+        "車衣", "安全帽", "水壺", "眼鏡", "車用眼鏡", "卡鞋", "配件", "裝備",
+        "點", "明天", "今天", "週末", "平日", "上午", "下午", "晚上"
+    ] or user_message.isdigit()
+    is_shop_query = any(kw in user_message for kw in shop_keywords)
 
-    if is_buy_query:
-        reply_text = "我們這裡由老闆統一回覆，請您稍等一下！"
+    if is_upgrade_query:
+        # 🚨 改裝/專業問題：立刻發送 Telegram 通知老闆接手，LINE 回覆請稍等
+        reply_text = "關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！"
         telegram_msg = (
-            f"🔴 *【準客戶高意願詢問（車款/零件/配件）】*\n"
+            f"🔴 *【客戶詢問改裝/零組件】*\n"
             f"💬 *客戶原話*：「{user_message}」\n"
-            f"👉 請前往 LINE 官方帳號手動回覆！"
+            f"👉 屬於技術/改裝問題，**請前往 LINE 手動接手！**"
         )
         send_telegram_notification(telegram_msg)
         
-    elif is_time_query:
-        reply_text = f"收到！您提到「{user_message}」，我已經幫您把時間記錄下來囉，請稍等一下由老闆跟您確認！"
-        telegram_msg = (
-            f"🟢 *【客戶已敲定時間】*\n"
-            f"💬 *客戶原話*：「{user_message}」\n"
-            f"👉 請前往 LINE 官方帳號手動回覆！"
-        )
-        send_telegram_notification(telegram_msg)
+    elif is_shop_query:
+        # 🟢 一般買車或看配件：AI 直接在 LINE 應對，不打擾老闆
+        reply_text = "有的！我們店裡有提供這類型的車款與周邊配件，歡迎直接過來店裡看看，或是告訴我您的需求與預算唷！"
         
     else:
-        reply_text = "真不好意思，您的問題比較特別，我已經立刻通知老闆本人來為您解答，請您稍等一下喔！"
+        # ⚠️ 完全看不懂的亂碼或特殊閒聊
+        reply_text = "真不好意思，您的問題比較特別，我已經請老闆來協助您，請稍等一下喔！"
         telegram_msg = (
-            f"⚠️ *【機器人無法辨識，已轉交老闆】*\n"
+            f"⚠️ *【機器人無法辨識】*\n"
             f"💬 *客戶原話*：「{user_message}」\n"
-            f"👉 請馬上前往 LINE 手動接手！"
+            f"👉 請前往 LINE 看看狀況！"
         )
         send_telegram_notification(telegram_msg)
 
