@@ -43,7 +43,7 @@ def handle_message(event):
     budget_kws = ["預算", "價格", "多少", "元", "萬"]
     is_selling = any(item in user_message for item in items) or any(bw in user_message for bw in budget_kws)
     
-    # 3. 嚴格的時間預約判定（移除「今天」，避免日常閒聊被誤判）
+    # 3. 嚴格的時間預約判定
     time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎"]
     time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
@@ -62,8 +62,8 @@ def handle_message(event):
         send_telegram_notification(f"🟢 *【預約時間】*：{user_message}")
         
     else:
+        # 閒聊雜項：只回覆 LINE，不發送 Telegram 通知，避免訊息過載！
         reply = "真不好意思，您的問題比較特別，我已經請老闆來協助您，請稍等一下喔！"
-        send_telegram_notification(f"⚠️ *【待處理】*：{user_message}")
 
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
