@@ -38,10 +38,10 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     
-    # 1. 擴充關鍵字：包含國字、英文、以及常見注音文（公路車、登山車的注音組合）
+    # 1. 判斷是否為預算或車款詢問（含常見注音）
     buy_keywords = [
         "公路車", "登山車", "預算", "萬", "元", "車款", "買車", "價格", "多少錢",
-        "ㄍㄨㄥ", "ㄌㄨˋ", "ㄔㄜ", "ㄉㄥˊ", "ㄕَان", "登山", "公路"
+        "ㄍㄨㄥ", "ㄌㄨˋ", "ㄔㄜ", "ㄉㄥˊ", "ㄕㄢ", "登山", "公路"
     ]
     is_budget_query = any(kw in user_message for kw in buy_keywords)
     
@@ -50,33 +50,23 @@ def handle_message(event):
 
     if is_budget_query:
         reply_text = "我們這裡由老闆統一回覆，請您稍等一下！"
-        s1 = f"• 客戶指定了具體車款或預算（含注音，原話：{user_message}）。"
-        s2 = "• 觸發精準攔截，交由老闆手動處理。"
-        s3 = f"• 當前機器人回覆：「{reply_text}」"
-        
-        telegram_msg = (
-            f"🔴 *【準客戶高意願詢問】*\n"
-            f"💬 *客戶原話*：「{user_message}」\n\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"📊 *【老闆專屬：應對策略】*\n\n"
-            f"1️⃣ *【需求解析】*\n{s1}\n\n"
-            f"2️⃣ *【引導方向】*\n{s2}\n\n"
-            f"3️⃣ *【建議回覆講法】*\n{s3}\n"
-            f"━━━━━━━━━━━━━━━\n\n"
-            f"👉 請前往 LINE 官方帳號手動回覆！"
-        )
+        telegram_msg = f"🔴 *【準客戶高意願詢問】*\n💬 *客戶原話*：「{user_message}」\n👉 請前往 LINE 官方帳號手動回覆！"
         send_telegram_notification(telegram_msg)
         
     elif is_time_query:
         reply_text = f"收到！您提到「{user_message}」，我已經幫您把時間記錄下來囉，請稍等一下由老闆跟您確認！"
+        telegram_msg = f"🟢 *【客戶已敲定時間】*\n💬 *客戶原話*：「{user_message}」\n👉 請前往 LINE 官方帳號手動回覆！"
+        send_telegram_notification(telegram_msg)
+        
+    else:
+        # 🚨 只要機器人無法歸類（例如打注音、亂碼、特殊提問），直接統一回覆並秒發 Telegram！
+        reply_text = "真不好意思，您的問題比較特別，我已經立刻通知老闆本人來為您解答，請您稍等一下喔！"
         telegram_msg = (
-            f"🟢 *【客戶已敲定時間】*\n"
-            f"💬 *客戶原話*：「{user_message}」\n\n"
-            f"👉 客戶正在預約時間，請盡快前往 LINE 回覆！"
+            f"⚠️ *【機器人無法辨識，已轉交老闆】*\n"
+            f"💬 *客戶原話*：「{user_message}」\n"
+            f"👉 客戶輸入了無法辨識的內容，**請馬上前往 LINE 手動接手！**"
         )
         send_telegram_notification(telegram_msg)
-    else:
-        reply_text = "有的！請問是想看哪種類型的車呢？"
 
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
 
