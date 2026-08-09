@@ -48,7 +48,7 @@ def handle_message(event):
     # 1. 判斷是否為預算或車款詢問
     is_budget_query = any(keyword in user_message for keyword in ["公路車", "登山車", "預算", "萬", "元"])
     
-    # 2. 判斷是否為時間/數字回覆（例如客戶回答幾點、8點等）
+    # 2. 判斷是否為時間/數字回覆
     is_time_query = any(keyword in user_message for keyword in ["點", "明天", "今天", "週末", "平日", "上午", "下午", "晚上"]) or user_message.isdigit()
 
     if is_budget_query:
@@ -68,13 +68,12 @@ def handle_message(event):
             f"━━━━━━━━━━━━━━━\n\n"
             f"👉 請前往 LINE 官方帳號手動回覆！"
         )
+        # 🔔 這裡補回了 Telegram 發送函式！
         send_telegram_notification(telegram_msg)
         
     elif is_time_query:
-        # 當客戶回覆時間時，給予更合理的承接語，而不是鬼打牆
         reply_text = f"收到！您提到「{user_message}」，我已經幫您把時間記錄下來囉，請稍等一下由老闆跟您確認！"
         
-        # 同時發送 Telegram 讓老闆知道客戶敲定時間了
         telegram_msg = (
             f"🟢 *【客戶已敲定時間】*\n"
             f"💬 *客戶原話*：「{user_message}」\n\n"
@@ -82,7 +81,6 @@ def handle_message(event):
         )
         send_telegram_notification(telegram_msg)
     else:
-        # 一般閒聊對話
         reply_text = "有的！請問是想看哪種類型的車呢？"
 
     # 發送 LINE 回覆
