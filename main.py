@@ -52,20 +52,21 @@ def handle_message(event):
     if is_upgrade:
         reply = "關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！"
         send_telegram_notification(f"🔴 *【技術諮詢】*：{user_message}")
-    
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+        
     elif is_selling:
         reply = "收到您的需求！您可以直接來店裡看看實品，或是由我幫您推薦幾款店內 CP 值很不錯的選擇唷！"
         send_telegram_notification(f"🟡 *【商品詢價】*：{user_message}")
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         
     elif is_time:
         reply = f"收到！您提到「{user_message}」，我已經幫您記錄下來囉，請稍等一下由老闆跟您確認！"
         send_telegram_notification(f"🟢 *【預約時間】*：{user_message}")
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         
     else:
-        # 閒聊雜項：只回覆 LINE，不發送 Telegram 通知，避免訊息過載！
-        reply = "真不好意思，您的問題比較特別，我已經請老闆來協助您，請稍等一下喔！"
-
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+        # 閒聊、打招呼（如早安、你好、我想問）：完全不回覆 LINE、不發 Telegram，讓對話保持安靜！
+        return
 
 if __name__ == "__main__":
     app.run(port=5000)
