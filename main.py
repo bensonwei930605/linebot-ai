@@ -7,7 +7,6 @@ import requests
 
 app = Flask(__name__)
 
-# 設定變數
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_SECRET")
 TELEGRAM_BOT_TOKEN = "8345028959:AAGp7LAqW4AEJUH1VHg8r7N0yWNjnDIMdTM"
@@ -36,7 +35,7 @@ def handle_message(event):
     user_message = event.message.text
     
     # 1. 技術改裝關鍵字
-    upgrade_kws = ["車架", "變速器", "變數器", "大盤", "功率", "碟盤", "輪框", "改裝", "升級", "維修"]
+    upgrade_kws = ["車架", "變速器", "變數器", "大盤", "功率", "碟盤", "輪框", "改裝", "升級", "維修", "怪怪的"]
     is_upgrade = any(kw in user_message for kw in upgrade_kws)
     
     # 2. 商品與預算關鍵字
@@ -44,12 +43,12 @@ def handle_message(event):
     budget_kws = ["預算", "價格", "多少", "元", "萬"]
     is_selling = any(item in user_message for item in items) or any(bw in user_message for bw in budget_kws)
     
-    # 3. 精準時間預約 (必須同時有「約/空/幾點」以及「時間詞」才判定)
-    time_verbs = ["幾點", "約", "過去", "空", "預約", "確認", "時間"]
-    time_nouns = ["點", "明天", "今天", "週末", "下午", "晚上"]
-    is_time = any(v in user_message for v in time_verbs) and any(n in user_message for n in time_nouns)
+    # 3. 嚴格的時間預約判定（移除「今天」，避免日常閒聊被誤判）
+    time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎"]
+    time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上"]
+    is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
-    # 判斷邏輯
+    # 判斷邏輯順序
     if is_upgrade:
         reply = "關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！"
         send_telegram_notification(f"🔴 *【技術諮詢】*：{user_message}")
