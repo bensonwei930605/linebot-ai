@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -23,6 +24,7 @@ TELEGRAM_CHAT_ID = "7468110837"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "你的GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
+# 儲存每個用戶的對話狀態
 user_sessions = {}
 
 def send_telegram_notification(message):
@@ -41,6 +43,7 @@ def generate_ai_reply_and_strategy(user_id, user_message):
     if user_id not in user_sessions:
         user_sessions[user_id] = []
     
+    # 僅記錄最近幾筆乾淨的對話
     user_sessions[user_id].append(f"客戶: {user_message}")
     if len(user_sessions[user_id]) > 6:
         user_sessions[user_id] = user_sessions[user_id][-6:]
@@ -48,12 +51,13 @@ def generate_ai_reply_and_strategy(user_id, user_message):
     chat_history_str = "\n".join(user_sessions[user_id])
 
     prompt = f"""
-    你是一家專業自行車店的老闆兼小幫手。以下是與這名客戶最近的對話紀錄：
+    你是一家專業自行車店的親切小幫手。以下是與這名客戶最近的對話紀錄：
     {chat_history_str}
     
     【核心原則】
-    1. 語氣必須親切、口語、像真實台灣在地車店老闆。
-    2. 配合客戶當下的提問給予自然的對應。
+    1. 語氣必須親切、口語、像真實台灣在地車店店員。
+    2. 如果客戶詢問一般問題，請給予自然、有互動感的回答。
+    3. 絕對不要學機器人跳針問「是要公路車還是登山車」。
     
     請嚴格依照以下格式回傳，不要有多餘的解釋或 Markdown 程式碼外框：
     REPLY: [你要回覆給客戶的口語對話內容]
@@ -85,11 +89,7 @@ def generate_ai_reply_and_strategy(user_id, user_message):
                 s3 = line_str.replace("STRATEGY_S3:", "").strip()
                 
         if not reply:
-            reply = text.replace("STRATEGY_S1", "").replace("STRATEGY_S2", "").replace("STRATEGY_S3", "").strip()
-            if not reply:
-                reply = "有的！這就幫您確認，看這週末或平日哪時候比較方便過來呢？"
-                
-        user_sessions[user_id].append(f"小幫手: {reply}")
+            reply = "有的！這就幫您確認，看這週末或平日哪時候比較方便過來呢？"
                 
         return reply, s1, s2, s3
     except Exception as e:
@@ -111,30 +111,37 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     user_id = event.source.user_id
-    text_lower = user_message.lower()
     
-    # 🛑 【強制條件式】碰到預算跟車款時，直接由老闆統一回覆
-    has_budget_word = any(kw in text_lower for kw in ["預算", "萬", "元"]) or any(char.isdigit() for char in user_message)
-    has_car_type = any(kw in text_lower for kw in ["公路車", "登山車", "車款", "小折", "單車", "自行車", "電輔車"])
+    # 🛑 【精準硬編碼攔截】利用正規表達式檢查是否同時包含「數字/預算」與「車款」
+    # 只要訊息裡有數字（例如 20萬、30萬）且包含車款，就強制由老闆回覆
+    has_number = bool(re.search(r'\d+', user_message))
+    has_budget_keyword = any(kw in user_message for kw in ["預算", "萬", "元", "$"])
+    has_car_type = any(kw in user_message for kw in ["公路車", "登山車", "車款", "小折", "單車", "自行車", "電輔車"])
     
-    if has_budget_word and has_car_type:
+    if (has_number or has_budget_keyword) and has_car_type:
         reply_text = "我們這裡由老闆統一回覆，請您稍等一下！"
-        s1 = "• 客戶詢問具體預算與車款推薦，屬於高意願深度諮詢。"
-        s2 = "• 轉交老闆親自評估庫存與規格並進行回覆。"
-        s3 = f"• 當前回覆：「{reply_text}」"
+        s1 = f"• 客戶輸入了具體預算與車款需求（原話：{user_message}）。"
+        s2 = "• 觸發防呆保護網，強制攔截並轉交老闆親自接手。"
+        s3 = f"• 當前機器人回覆：「{reply_text}」"
         
+        # 紀錄對話但標記為老闆處理，避免 AI 記憶混亂
         if user_id not in user_sessions:
             user_sessions[user_id] = []
         user_sessions[user_id].append(f"客戶: {user_message}")
         user_sessions[user_id].append(f"小幫手: {reply_text}")
     else:
+        # 正常走 Gemini 智慧生成
         reply_text, s1, s2, s3 = generate_ai_reply_and_strategy(user_id, user_message)
+        if user_id in user_sessions:
+            user_sessions[user_id].append(f"小幫手: {reply_text}")
 
+    # 發送 LINE 訊息
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
     
+    # 過濾無意義的短訊息再推播到 Telegram
     ignore_words = ["嗨", "哈囉", "安安", "在嗎", "好", "嗯", "喔", "謝謝", "ok", "了解"]
     is_trivial = (len(user_message.strip()) <= 3 and user_message.strip() in ignore_words)
     
@@ -148,9 +155,8 @@ def handle_message(event):
             f"2️⃣ *【引導方向】*\n{s2}\n\n"
             f"3️⃣ *【建議回覆講法】*\n{s3}\n"
             f"━━━━━━━━━━━━━━━\n\n"
-            f"👉 請前往 LINE 官方帳號查看詳情！"
+            f"👉 請前往 LINE 官方帳號查看詳情並手動回覆！"
         )
-        
         send_telegram_notification(telegram_msg)
 
 if __name__ == "__main__":
