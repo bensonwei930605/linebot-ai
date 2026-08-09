@@ -45,13 +45,13 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     
-    # 🛑 絕對防禦攔截
+    # 🛑 只要客戶提到任何車款或預算，直接由老闆接手，絕不跳針亂問
     is_budget_query = any(keyword in user_message for keyword in ["公路車", "登山車", "預算", "萬", "元"])
     
     if is_budget_query:
         reply_text = "我們這裡由老闆統一回覆，請您稍等一下！"
-        s1 = f"• 客戶詢問預算車款（原話：{user_message}）。"
-        s2 = "• 觸發絕對防禦攔截，交由老闆手動處理。"
+        s1 = f"• 客戶指定了具體車款或預算（原話：{user_message}）。"
+        s2 = "• 觸發精準攔截，交由老闆手動處理。"
         s3 = f"• 當前機器人回覆：「{reply_text}」"
     else:
         reply_text = "有的！這就幫您確認，看這週末或平日哪時候比較方便過來呢？"
@@ -59,11 +59,13 @@ def handle_message(event):
         s2 = "• 引導至實體賞車或預約。"
         s3 = f"• 當前機器人回覆：「{reply_text}」"
 
+    # 發送 LINE 回覆
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
     
+    # 推播通知給 Telegram 老闆
     telegram_msg = (
         f"🔴 *【客戶對話動態通知】*\n"
         f"💬 *客戶原話*：「{user_message}」\n\n"
