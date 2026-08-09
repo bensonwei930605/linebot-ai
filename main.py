@@ -4,7 +4,6 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextSendMessage, TextMessage
 import requests
-import google.generativeai as genai
 
 app = Flask(__name__)
 
@@ -18,12 +17,6 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 # Telegram 機器人設定
 TELEGRAM_BOT_TOKEN = "8345028959:AAGp7LAqW4AEJUH1VHg8r7N0yWNjnDIMdTM"
 TELEGRAM_CHAT_ID = "7468110837"
-
-# Google Gemini API 設定
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "你的GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
-
-user_sessions = {}
 
 def send_telegram_notification(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -51,9 +44,8 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
-    user_id = event.source.user_id
     
-    # 🛑 【絕對防禦網】只要客戶訊息裡面同時有「預算/數字」和「車款」，絕對不經由 AI，直接死死鎖死這句！
+    # 🛑 絕對防禦攔截
     is_budget_query = any(keyword in user_message for keyword in ["公路車", "登山車", "預算", "萬", "元"])
     
     if is_budget_query:
@@ -62,19 +54,16 @@ def handle_message(event):
         s2 = "• 觸發絕對防禦攔截，交由老闆手動處理。"
         s3 = f"• 當前機器人回覆：「{reply_text}」"
     else:
-        # 一般閒聊對話才交給 Gemini
         reply_text = "有的！這就幫您確認，看這週末或平日哪時候比較方便過來呢？"
         s1 = "• 客戶進行一般性對話。"
         s2 = "• 引導至實體賞車或預約。"
         s3 = f"• 當前機器人回覆：「{reply_text}」"
 
-    # 發送 LINE 訊息
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
     
-    # 推播到 Telegram 讓老闆知道
     telegram_msg = (
         f"🔴 *【客戶對話動態通知】*\n"
         f"💬 *客戶原話*：「{user_message}」\n\n"
