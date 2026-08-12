@@ -47,16 +47,16 @@ def handle_message(event):
     budget_kws = ["預算", "價格", "多少", "元", "萬"]
     is_selling = any(item in user_message for item in items) or any(bw in user_message for bw in budget_kws)
 
-    # 3. 營業時間關鍵字 (新增！)
-    hours_kws = ["營業", "開門", "關門", "打烊", "幾點開", "幾點關"]
+    # 3. 營業時間關鍵字 (擴充防呆)
+    hours_kws = ["營業", "開門", "關門", "打烊", "幾點開", "幾點關", "休息", "店休"]
     is_hours = any(kw in user_message for kw in hours_kws)
     
     # 4. 嚴格的時間預約判定
-    time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎"]
+    time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎", "過去"]
     time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "這禮拜"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
-    # 判斷邏輯與回覆
+    # 判斷邏輯與回覆 (順序很重要：營業時間 > 預約時間)
     if is_upgrade:
         reply = "關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！"
         send_telegram_notification(f"🔴 *【技術諮詢】*：{user_message}")
@@ -92,4 +92,3 @@ def handle_message(event):
 
 if __name__ == "__main__":
     app.run(port=5000)
-    
