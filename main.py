@@ -7,6 +7,7 @@ import requests
 
 app = Flask(__name__)
 
+# 設定變數
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_SECRET")
 TELEGRAM_BOT_TOKEN = "8345028959:AAGp7LAqW4AEJUH1VHg8r7N0yWNjnDIMdTM"
@@ -18,7 +19,10 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 def send_telegram_notification(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
-    requests.post(url, json=payload)
+    try:
+        requests.post(url, json=payload)
+    except Exception as e:
+        print(f"Telegram 推播失敗: {e}")
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -48,7 +52,7 @@ def handle_message(event):
     time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
-    # 判斷邏輯順序
+    # 判斷邏輯與回覆
     if is_upgrade:
         reply = "關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！"
         send_telegram_notification(f"🔴 *【技術諮詢】*：{user_message}")
@@ -65,7 +69,7 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         
     else:
-        # 閒聊、打招呼（如早安、你好、我想問）：完全不回覆 LINE、不發 Telegram，讓對話保持安靜！
+        # 閒聊、打招呼：完全不回覆 LINE、不發 Telegram，讓對話保持安靜
         return
 
 if __name__ == "__main__":
