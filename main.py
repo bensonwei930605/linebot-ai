@@ -46,8 +46,12 @@ def handle_message(event):
     items = ["公路車", "登山車", "車衣", "安全帽", "帽子", "水壺", "眼鏡", "卡鞋"]
     budget_kws = ["預算", "價格", "多少", "元", "萬"]
     is_selling = any(item in user_message for item in items) or any(bw in user_message for bw in budget_kws)
+
+    # 3. 營業時間關鍵字 (新增！)
+    hours_kws = ["營業", "開門", "關門", "打烊", "幾點開", "幾點關"]
+    is_hours = any(kw in user_message for kw in hours_kws)
     
-    # 3. 嚴格的時間預約判定
+    # 4. 嚴格的時間預約判定
     time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎"]
     time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "這禮拜"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
@@ -63,8 +67,13 @@ def handle_message(event):
         send_telegram_notification(f"🟡 *【商品詢價】*：{user_message}")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         
+    elif is_hours:
+        # 單純詢問營業時間，直接回覆，不發 Telegram 打擾老闆
+        reply = "我們都是早上8點到晚上8點，歡迎來店裡看看！"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+
     elif is_time:
-        # ⚠️ 這裡已經將「您提到...」完全刪除了，只保留自然的回覆
+        # 預約項目追問
         reply = "收到！想請問您這次想要預約什麼項目呢？（例如：車輛檢修、改裝、或是看車買裝備），我已經先幫您記錄下來囉，請稍等一下由老闆跟您確認時間！"
         
         # 預約通知加上老闆確認指引與後台快速連結
@@ -83,3 +92,4 @@ def handle_message(event):
 
 if __name__ == "__main__":
     app.run(port=5000)
+    
