@@ -49,7 +49,7 @@ def handle_message(event):
     
     # 3. 嚴格的時間預約判定
     time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎"]
-    time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上"]
+    time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "這禮拜"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
     # 判斷邏輯與回覆
@@ -65,11 +65,19 @@ def handle_message(event):
         
     elif is_time:
         reply = f"收到！您提到「{user_message}」，我已經幫您記錄下來囉，請稍等一下由老闆跟您確認！"
-        send_telegram_notification(f"🟢 *【預約時間】*：{user_message}")
+        
+        # 預約通知加上老闆確認指引與後台快速連結
+        tg_msg = (
+            f"🟢 *【預約時間】*\n"
+            f"客戶訊息：{user_message}\n\n"
+            f"⚠️ *老闆請注意：請盡快與客戶確認預約時間！*\n"
+            f"👉 請至 LINE OA 後台回覆：https://manager.line.biz/"
+        )
+        send_telegram_notification(tg_msg)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         
     else:
-        # 閒聊、打招呼：完全不回覆 LINE、不發 Telegram，讓對話保持安靜
+        # 閒聊、打招呼：完全不回覆 LINE、不發 Telegram，保持對話安靜
         return
 
 if __name__ == "__main__":
