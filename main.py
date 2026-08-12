@@ -64,13 +64,14 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         
     elif is_time:
-        reply = f"收到！您提到「{user_message}」，我已經幫您記錄下來囉，請稍等一下由老闆跟您確認！"
+        # 加入追問預約項目的回覆
+        reply = f"收到！您提到「{user_message}」，想問您是想要預約什麼項目呢？（例如：車輛檢修、改裝、或是看車買裝備），我已經幫您記錄下來囉，請稍等一下由老闆跟您確認！"
         
         # 預約通知加上老闆確認指引與後台快速連結
         tg_msg = (
             f"🟢 *【預約時間】*\n"
             f"客戶訊息：{user_message}\n\n"
-            f"⚠️ *老闆請注意：請盡快與客戶確認預約時間！*\n"
+            f"⚠️ *老闆請注意：請盡快與客戶確認預約項目與時間！*\n"
             f"👉 請至 LINE OA 後台回覆：https://manager.line.biz/"
         )
         send_telegram_notification(tg_msg)
