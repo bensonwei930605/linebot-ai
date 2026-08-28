@@ -53,7 +53,8 @@ def handle_message(event):
     
     # 4. 嚴格的時間預約判定
     time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎", "過去"]
-    time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "這禮拜"]
+    time_points = # 更新後的（加入星期、週、禮拜、號）
+time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "禮拜", "星期", "週", "號", "今天"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
     # ---------------- 核心修改邏輯開始 ----------------
