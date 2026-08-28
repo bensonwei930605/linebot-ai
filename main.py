@@ -47,7 +47,7 @@ def handle_message(event):
     budget_kws = ["預算", "價格", "多少", "元", "萬"]
     is_selling = any(item in user_message for item in items) or any(bw in user_message for bw in budget_kws)
 
-    # 3. 營業時間關鍵字 (擴充防呆)
+    # 3. 營業時間關鍵字
     hours_kws = ["營業", "開門", "關門", "打烊", "幾點開", "幾點關", "休息", "店休"]
     is_hours = any(kw in user_message for kw in hours_kws)
     
@@ -56,39 +56,43 @@ def handle_message(event):
     time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "這禮拜"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
-    # 判斷邏輯與回覆 (順序很重要：營業時間 > 預約時間)
-    if is_upgrade:
-        reply = "關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！"
-        send_telegram_notification(f"🔴 *【技術諮詢】*：{user_message}")
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
-        
-    elif is_selling:
-        reply = "收到您的需求！您可以直接來店裡看看實品，或是由我幫您推薦幾款店內 CP 值很不錯的選擇唷！"
-        send_telegram_notification(f"🟡 *【商品詢價】*：{user_message}")
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
-        
-    elif is_hours:
-        # 單純詢問營業時間，直接回覆，不發 Telegram 打擾老闆
-        reply = "我們都是早上8點到晚上8點，歡迎來店裡看看！"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    # ---------------- 核心修改邏輯開始 ----------------
+    # 建立空清單，用來收集要回覆給客人的話，以及要推播給老闆的標籤
+    reply_texts = []
+    tg_alerts = []
 
-    elif is_time:
-        # 預約項目追問
-        reply = "收到！想請問您這次想要預約什麼項目呢？（例如：車輛檢修、改裝、或是看車買裝備），我已經先幫您記錄下來囉，請稍等一下由老闆跟您確認時間！"
+    # 判斷一：營業時間 (不需推播老闆)
+    if is_hours:
+        reply_texts.append("我們都是早上8點到晚上8點，歡迎來店裡看看！")
+
+    # 判斷二：技術改裝
+    if is_upgrade:
+        reply_texts.append("關於改裝與專業零組件的問題，我們由老闆親自為您說明，請您稍等一下喔！")
+        tg_alerts.append("🔴 *【技術諮詢】*")
+
+    # 判斷三：商品詢價
+    if is_selling:
+        reply_texts.append("收到您的需求！您可以直接來店裡看看實品，或是由我幫您推薦幾款店內 CP 值很不錯的選擇唷！")
+        tg_alerts.append("🟡 *【商品詢價】*")
+
+    # 判斷四：預約時間
+    if is_time:
+        reply_texts.append("收到！想請問您這次想要預約什麼項目呢？（例如：車輛檢修、改裝、或是看車），我已經先幫您記錄下來囉，請稍等一下由老闆跟您確認時間！")
+        tg_alerts.append("🟢 *【預約時間】*")
+
+    # 執行回覆與推播
+    if reply_texts:
+        # 將所有符合的答案，用換行符號合併成一大段訊息傳給客人
+        final_reply = "\n\n".join(reply_texts)
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=final_reply))
         
-        # 預約通知加上老闆確認指引與後台快速連結
+    if tg_alerts:
+        # 如果有多個需求，將標籤串接起來 (例如: 🔴 *【技術諮詢】* & 🟢 *【預約時間】*)
+        tags = " & ".join(tg_alerts)
         tg_msg = (
-            f"🟢 *【預約時間】*\n"
+            f"{tags}\n"
             f"客戶訊息：{user_message}\n\n"
-            f"⚠️ *老闆請注意：請盡快與客戶確認預約項目與時間！*\n"
-            f"👉 請至 LINE OA 後台回覆：https://manager.line.biz/"
+            f"⚠️ *老闆請注意：請盡快至後台回覆與確認！*\n"
+            f"👉 https://manager.line.biz/"
         )
         send_telegram_notification(tg_msg)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
-        
-    else:
-        # 閒聊、打招呼：完全不回覆 LINE、不發 Telegram，保持對話安靜
-        return
-
-if __name__ == "__main__":
-    app.run(port=5000)
