@@ -7,11 +7,11 @@ import requests
 
 app = Flask(__name__)
 
-# 設定變數
+# 設定變數 (請確保在部署環境中設定了這四個環境變數)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "你的LINE_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "你的LINE_SECRET")
-TELEGRAM_BOT_TOKEN = "8345028959:AAGp7LAqW4AEJUH1VHg8r7N0yWNjnDIMdTM"
-TELEGRAM_CHAT_ID = "7468110837"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "你的TG_BOT_TOKEN") 
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "你的TG_CHAT_ID")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -53,8 +53,8 @@ def handle_message(event):
     
     # 4. 嚴格的時間預約判定
     time_actions = ["幾點", "約", "空", "預約", "時間", "行嗎", "可以嗎", "過去"]
-    time_points = # 更新後的（加入星期、週、禮拜、號）
-time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "禮拜", "星期", "週", "號", "今天"]
+    # 更新後的（加入星期、週、禮拜、號）
+    time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上", "禮拜", "星期", "週", "號", "今天"]
     is_time = any(act in user_message for act in time_actions) and any(pt in user_message for pt in time_points)
 
     # ---------------- 核心修改邏輯開始 ----------------
@@ -85,7 +85,11 @@ time_points = ["點", "明天", "後天", "週末", "下午", "晚上", "早上"
     if reply_texts:
         # 將所有符合的答案，用換行符號合併成一大段訊息傳給客人
         final_reply = "\n\n".join(reply_texts)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=final_reply))
+    else:
+        # 如果都沒有命中關鍵字，給予預設回覆 (可根據需求自行刪減此段)
+        final_reply = "收到您的訊息！如果比較急，可以直接撥打門市電話，或稍等我們一下為您回覆唷。"
+        
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=final_reply))
         
     if tg_alerts:
         # 如果有多個需求，將標籤串接起來 (例如: 🔴 *【技術諮詢】* & 🟢 *【預約時間】*)
